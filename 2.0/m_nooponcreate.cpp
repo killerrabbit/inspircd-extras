@@ -1,7 +1,7 @@
 /*
  * InspIRCd -- Internet Relay Chat Daemon
  *
- *   Copyright (C) 2012 Attila Molnar <attilamolnar@hush.com>
+ *   Copyright (C) 2014 Attila Molnar <attilamolnar@hush.com>
  *
  * This file is part of InspIRCd.  InspIRCd is free software: you can
  * redistribute it and/or modify it under the terms of the GNU General Public
@@ -16,39 +16,33 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 /* $ModAuthor: Attila Molnar */
 /* $ModAuthorMail: attilamolnar@hush.com */
-/* $ModDesc: Displays a static text to every connecting user before registration */
+/* $ModDesc: Don't op normal users when they create a new channel */
 /* $ModDepends: core 2.0 */
 
 #include "inspircd.h"
 
-class ModuleConnBanner : public Module
+class ModuleNoOpOnCreate : public Module
 {
-	std::string text;
  public:
 	void init()
 	{
-		OnRehash(NULL);
-		Implementation eventlist[] = { I_OnRehash, I_OnUserInit };
-		ServerInstance->Modules->Attach(eventlist, this, sizeof(eventlist)/sizeof(Implementation));
+		ServerInstance->Modules->Attach(I_OnUserPreJoin, this);
 	}
 
-	void OnRehash(User* user)
+	ModResult OnUserPreJoin(User* user, Channel* chan, const char* cname, std::string& privs, const std::string& keygiven)
 	{
-		text = ServerInstance->Config->ConfValue("connbanner")->getString("text");
-	}
-
-	void OnUserInit(LocalUser* user)
-	{
-		if (!text.empty())
-			user->WriteServ("NOTICE Auth :*** " + text);
+		if ((!chan) && (privs == "o") && (!IS_OPER(user)))
+			privs.clear();
+		return MOD_RES_PASSTHRU;
 	}
 
 	Version GetVersion()
 	{
-		return Version("Displays a static text to every connecting user before registration");
+		return Version("Don't op normal users when they create a new channel");
 	}
 };
 
-MODULE_INIT(ModuleConnBanner)
+MODULE_INIT(ModuleNoOpOnCreate)

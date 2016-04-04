@@ -1,7 +1,7 @@
 /*
  * InspIRCd -- Internet Relay Chat Daemon
  *
- *   Copyright (C) 2012 Attila Molnar <attilamolnar@hush.com>
+ *   Copyright (C) 2014 Attila Molnar <attilamolnar@hush.com>
  *
  * This file is part of InspIRCd.  InspIRCd is free software: you can
  * redistribute it and/or modify it under the terms of the GNU General Public
@@ -16,39 +16,38 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 /* $ModAuthor: Attila Molnar */
 /* $ModAuthorMail: attilamolnar@hush.com */
-/* $ModDesc: Displays a static text to every connecting user before registration */
+/* $ModDesc: Disallows changing nick to UID using /NICK */
 /* $ModDepends: core 2.0 */
 
 #include "inspircd.h"
 
-class ModuleConnBanner : public Module
+class ModuleNoUIDNicks : public Module
 {
-	std::string text;
  public:
 	void init()
 	{
-		OnRehash(NULL);
-		Implementation eventlist[] = { I_OnRehash, I_OnUserInit };
-		ServerInstance->Modules->Attach(eventlist, this, sizeof(eventlist)/sizeof(Implementation));
+		ServerInstance->Modules->Attach(I_OnUserPreNick, this);
 	}
 
-	void OnRehash(User* user)
+	ModResult OnUserPreNick(User* user, const std::string& newnick)
 	{
-		text = ServerInstance->Config->ConfValue("connbanner")->getString("text");
-	}
+		if ((!IS_LOCAL(user)) || (newnick[0] > '9') || (newnick[0] < '0'))
+			return MOD_RES_PASSTHRU;
 
-	void OnUserInit(LocalUser* user)
-	{
-		if (!text.empty())
-			user->WriteServ("NOTICE Auth :*** " + text);
+		if (ServerInstance->NICKForced.get(user))
+			return MOD_RES_PASSTHRU;
+
+		user->WriteNumeric(432, "%s 0 :Erroneous Nickname", user->nick.c_str());
+		return MOD_RES_DENY;
 	}
 
 	Version GetVersion()
 	{
-		return Version("Displays a static text to every connecting user before registration");
+		return Version("Disallows changing nick to UID using /NICK");
 	}
 };
 
-MODULE_INIT(ModuleConnBanner)
+MODULE_INIT(ModuleNoUIDNicks)

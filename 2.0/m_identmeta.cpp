@@ -1,7 +1,7 @@
 /*
  * InspIRCd -- Internet Relay Chat Daemon
  *
- *   Copyright (C) 2013 Peter Powell <petpow@saberuk.com>
+ *   Copyright (C) 2014 Peter Powell <petpow@saberuk.com>
  *
  * This file is part of InspIRCd.  InspIRCd is free software: you can
  * redistribute it and/or modify it under the terms of the GNU General Public
@@ -18,37 +18,39 @@
 
 
 /* $ModAuthor: Peter "SaberUK" Powell */
-/* $ModDesc: Allows forcing idents on users based on their connect class. */
+/* $ModDesc: Stores the ident given in USER as metadata. */
 /* $ModDepends: core 2.0-2.1 */
-/* $ModConfig: <connect forceident="example"> */
 
 #include "inspircd.h"
 
-class ModuleForceIdent : public Module
+class ModuleIdentMeta : public Module
 {
+ private:
+	StringExtItem ext;
+
  public:
+	ModuleIdentMeta()
+		: ext("user-ident", this) { }
+
 	void init()
 	{
-		ServerInstance->Modules->Attach(I_OnUserConnect, this);
+		ServerInstance->Modules->Attach(I_OnChangeIdent, this);
 	}
 
-	void OnUserConnect(LocalUser* user)
+	void OnChangeIdent(User* user, const std::string& ident)
 	{
-		ConfigTag* tag = user->MyClass->config;
-		std::string ident = tag->getString("forceident");
-		if (ServerInstance->IsIdent(ident.c_str()))
+		if (IS_LOCAL(user) && ext.get(user) == NULL)
 		{
-			ServerInstance->Logs->Log("m_forceident", DEBUG, "Setting ident of user '%s' (%s) in class '%s' to '%s'.",
-				user->nick.c_str(), user->uuid.c_str(), user->MyClass->name.c_str(), ident.c_str());
-			user->ident = ident;
-			user->InvalidateCache();
+			ServerInstance->Logs->Log("m_identmeta", DEBUG, "Setting ident metadata of %s to %s.",
+				user->nick.c_str(), ident.c_str());
+			ext.set(user, ident);
 		}
 	}
 
 	Version GetVersion()
 	{
-		return Version("Allows forcing idents on users based on their connect class.");
+		return Version("Stores the ident given in USER as metadata.");
 	}
 };
 
-MODULE_INIT(ModuleForceIdent)
+MODULE_INIT(ModuleIdentMeta)
